@@ -1,0 +1,3 @@
+[submodule "terml"]
+	path = terml
+	url = https://github.com/Shylie/terml.git
