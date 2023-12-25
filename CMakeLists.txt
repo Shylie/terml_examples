@@ -5,3 +5,4 @@ project(terml_test CXX)
 add_subdirectory(terml)
 
 add_subdirectory(basic)
+add_subdirectory(rogue)
