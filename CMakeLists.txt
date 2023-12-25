@@ -4,4 +4,4 @@ project(terml_test CXX)
 
 add_subdirectory(terml)
 
-add_subdirectory(terml_test_basic)
+add_subdirectory(basic)
