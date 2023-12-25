@@ -1,15 +1,15 @@
 cmake_minimum_required(VERSION 3.18)
 
-add_executable(terml_test_basic
+add_executable(basic
 	main.cpp
 )
 
-set_target_properties(terml_test_basic
+set_target_properties(basic
 	PROPERTIES
 		CXX_STANDARD 11
 )
 
-target_link_libraries(terml_test_basic
+target_link_libraries(basic
 	PUBLIC
 		terml
 )
