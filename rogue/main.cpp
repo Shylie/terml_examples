@@ -18,6 +18,7 @@ public:
 	virtual int pathing_cost() const override { return 0; }
 	virtual char representation() const override { return ' '; }
 };
+static FloorBehaviour floor_behaviour;
 
 class WallBehaviour : public TileBehaviour
 {
@@ -26,49 +27,61 @@ public:
 	virtual int pathing_cost() const override { return -1; }
 	virtual char representation() const override { return '#'; }
 };
+static WallBehaviour wall_behaviour;
 
 class Tile
 {
 public:
-	Tile(const TileBehaviour* behaviour) :
+	Tile(const TileBehaviour& behaviour) :
 		m_behaviour(behaviour)
 	{ }
 
 	virtual ~Tile() = default;
 
-	bool blocks_vision() const { return m_behaviour->blocks_vision(); }
-	int pathing_cost() const { return m_behaviour->pathing_cost(); }
+	bool blocks_vision() const { return m_behaviour.blocks_vision(); }
+	int pathing_cost() const { return m_behaviour.pathing_cost(); }
 	void draw(unsigned int x, unsigned int y) const
 	{
-		terml_set(x, y, m_behaviour->representation(), 0, 0xFFFFFF);
+		terml_set(x, y, { m_behaviour.representation(), 0, 0xFFFFFF });
 	}
 
 private:
-	const TileBehaviour* const m_behaviour;
+	const TileBehaviour& m_behaviour;
+};
+
+class Map;
+class MapGenerator
+{
+public:
+	virtual ~MapGenerator() = default;
+
+	void generate(Map* map)
+	{
+		m_current_map = map;
+		generate_impl();
+	}
+
+protected:
+	virtual void generate_impl() = 0;
+
+	Map* current_map() const
+	{
+		return m_current_map;
+	}
+
+private:
+	Map* m_current_map;
 };
 
 class Map
 {
 public:
-	Map(unsigned int width, unsigned int height) :
+	Map(unsigned int width, unsigned int height, MapGenerator& generator) :
 		m_width(width),
 		m_height(height),
-		m_tiles(new Tile* [width * height] {})
+		m_tiles(new Tile*[width * height]{})
 	{
-		for (int x = 0; x < width; x++)
-		{
-			for (int y = 0; y < height; y++)
-			{
-				if (rand() % 10 == 0)
-				{
-					set_tile(x, y, new Tile(get_wall()));
-				}
-				else
-				{
-					set_tile(x, y, new Tile(get_floor()));
-				}
-			}
-		}
+		generator.generate(this);
 	}
 
 	Map(const Map&) = delete;
@@ -76,7 +89,7 @@ public:
 	Map& operator=(const Map&) = delete;
 	Map& operator=(Map&&) = delete;
 
-	virtual ~Map()
+	~Map()
 	{
 		for (int i = 0; i < m_width * m_height; i++)
 		{
@@ -139,38 +152,82 @@ public:
 				}
 				else
 				{
-					terml_set(x, y, ' ', 0, 0);
+					terml_set(x, y, { ' ', 0, 0 });
 				}
 			}
 		}
 	}
 
-protected:
-	const FloorBehaviour* get_floor() const { return &f_floor; }
-	const WallBehaviour* get_wall() const { return &f_wall; }
+	unsigned int get_width() const { return m_width; }
+	unsigned int get_height() const { return m_height; }
 
 private:
 	unsigned int m_width;
 	unsigned int m_height;
 	Tile** m_tiles;
-
-	FloorBehaviour f_floor;
-	WallBehaviour f_wall;
 };
+
+template <unsigned int ROOM_COUNT>
+class BasicMapGenerator : public MapGenerator
+{
+protected:
+	struct room
+	{
+		unsigned int x, y, w, h;
+	} rooms[ROOM_COUNT];
+
+	virtual void generate_impl() override
+	{
+		for (int i = 0; i < current_map()->get_width() * current_map()->get_height(); i++)
+		{
+			current_map()->set_tile(i % current_map()->get_width(), i / current_map()->get_width(), new Tile(floor_behaviour));
+		}
+
+		for (int i = 0; i < ROOM_COUNT; i++)
+		{
+			rooms[i] = generate_room();
+		}
+	}
+
+	room generate_room() const
+	{
+		const unsigned int x = rand() % current_map()->get_width();
+		const unsigned int y = rand() % current_map()->get_height();
+		const int w = rand() % (2 * current_map()->get_width() / ROOM_COUNT) + 1;
+		const int h = rand() % (2 * current_map()->get_height() / ROOM_COUNT) + 1;
+
+		for (int ox = -w; ox <= w; ox++)
+		{
+			for (int oy = -h; oy <= h; oy++)
+			{
+				current_map()->set_tile(x + ox, y + oy, new Tile(wall_behaviour));
+			}
+		}
+
+		return { x, y, static_cast<unsigned int>(w), static_cast<unsigned int>(h) };
+	}
+};
+
+static constexpr unsigned int MAP_WIDTH = 100;
+static constexpr unsigned int MAP_HEIGHT = 100;
+static constexpr unsigned int TILES_PER_ROOM = 200;
+static constexpr unsigned int NUM_ROOMS = (MAP_WIDTH * MAP_HEIGHT) / TILES_PER_ROOM;
+
+static BasicMapGenerator<NUM_ROOMS> room_generator;
 
 static int px = 0;
 static int py = 0;
-static Map map(120, 70);
+static Map map(MAP_WIDTH, MAP_HEIGHT, room_generator);
 
 static void draw()
 {
 	map.draw(px - terml_get_width() / 2, py - terml_get_height() / 2);
-	terml_set(terml_get_width() / 2, terml_get_height() / 2, '@', 0, 0xFFFFFF);
+	terml_set(terml_get_width() / 2, terml_get_height() / 2, { '@', 0, 0xFFFFFF });
 
 	terml_flush();
 }
 
-static void resize_cb(unsigned int, unsigned int, unsigned int, unsigned int)
+static void resize_cb(unsigned int, unsigned int)
 {
 	draw();
 }
