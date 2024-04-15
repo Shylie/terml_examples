@@ -8,7 +8,7 @@ public:
 	virtual ~TileBehaviour() = default;
 	virtual bool blocks_vision() const = 0;
 	virtual int pathing_cost() const = 0;
-	virtual char representation() const = 0;
+	virtual unsigned int representation() const = 0;
 };
 
 class FloorBehaviour : public TileBehaviour
@@ -16,7 +16,7 @@ class FloorBehaviour : public TileBehaviour
 public:
 	virtual bool blocks_vision() const override { return false; }
 	virtual int pathing_cost() const override { return 0; }
-	virtual char representation() const override { return ' '; }
+	virtual unsigned int representation() const override { return ' '; }
 };
 static FloorBehaviour floor_behaviour;
 
@@ -25,7 +25,7 @@ class WallBehaviour : public TileBehaviour
 public:
 	virtual bool blocks_vision() const override { return true; }
 	virtual int pathing_cost() const override { return -1; }
-	virtual char representation() const override { return '#'; }
+	virtual unsigned int representation() const override { return '#'; }
 };
 static WallBehaviour wall_behaviour;
 
@@ -232,7 +232,7 @@ static void resize_cb(unsigned int, unsigned int)
 	draw();
 }
 
-static void key_cb(char c)
+static void key_cb(unsigned int c)
 {
 	const Tile* tile;
 	switch (c)

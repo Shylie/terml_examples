@@ -33,7 +33,7 @@ static void main_callback()
 	}
 }
 
-static void key_callback(char code)
+static void key_callback(unsigned int code)
 {
 	if (code == '\x1B')
 	{
