@@ -6,7 +6,7 @@ class TileBehaviour
 {
 public:
 	virtual ~TileBehaviour() = default;
-	virtual bool blocks_vision() const = 0;
+	virtual float transparency() const = 0;
 	virtual int pathing_cost() const = 0;
 	virtual unsigned int representation() const = 0;
 };
@@ -14,7 +14,7 @@ public:
 class FloorBehaviour : public TileBehaviour
 {
 public:
-	virtual bool blocks_vision() const override { return false; }
+	virtual float transparency() const override { return 1; }
 	virtual int pathing_cost() const override { return 0; }
 	virtual unsigned int representation() const override { return ' '; }
 };
@@ -23,7 +23,7 @@ static FloorBehaviour floor_behaviour;
 class WallBehaviour : public TileBehaviour
 {
 public:
-	virtual bool blocks_vision() const override { return true; }
+	virtual float transparency() const override { return 0.75f; }
 	virtual int pathing_cost() const override { return -1; }
 	virtual unsigned int representation() const override { return '#'; }
 };
@@ -38,11 +38,11 @@ public:
 
 	virtual ~Tile() = default;
 
-	bool blocks_vision() const { return m_behaviour.blocks_vision(); }
+	float transparency() const { return m_behaviour.transparency(); }
 	int pathing_cost() const { return m_behaviour.pathing_cost(); }
-	void draw(unsigned int x, unsigned int y) const
+	void draw(unsigned int x, unsigned int y, int color) const
 	{
-		terml_set(x, y, { m_behaviour.representation(), 0, 0xFFFFFF });
+		terml_set(x, y, { m_behaviour.representation(), 0, color });
 	}
 
 private:
@@ -136,7 +136,7 @@ public:
 		}
 	}
 
-	void draw(int ox, int oy) const
+	void draw(int ox, int oy, int px, int py) const
 	{
 		const unsigned int tw = terml_get_width();
 		const unsigned int th = terml_get_height();
@@ -148,7 +148,26 @@ public:
 				const Tile* tile = get_tile(x + ox, y + oy);
 				if (tile)
 				{
-					tile->draw(x, y);
+					const int dx = x + ox - px;
+					const int dy = y + oy - py;
+					const float dist = sqrtf(dx * dx + dy * dy);
+
+					float blocked = 1;
+					const Tile* last = nullptr;
+					for (float i = 0; i < dist + 1; i += 0.5f)
+					{
+						const Tile* current = get_tile(px + i * dx / dist, py + i * dy / dist);
+						if (current/* && current != last*/)
+						{
+							blocked *= current->transparency();
+
+							last = current;
+						}
+					}
+
+					const int color = 255 * blocked;
+
+					tile->draw(x, y, 0x010101 * (color >= 0xFF ? 0xFF : color));
 				}
 				else
 				{
@@ -221,7 +240,7 @@ static Map map(MAP_WIDTH, MAP_HEIGHT, room_generator);
 
 static void draw()
 {
-	map.draw(px - terml_get_width() / 2, py - terml_get_height() / 2);
+	map.draw(px - terml_get_width() / 2, py - terml_get_height() / 2, px, py);
 	terml_set(terml_get_width() / 2, terml_get_height() / 2, { '@', 0, 0xFFFFFF });
 
 	terml_flush();
